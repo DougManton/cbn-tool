@@ -92,6 +92,13 @@ def get_get_parser_url(args, config_id):
     return url
 
 
+def get_default_parser_url(args, log_type):
+    """Returns get parser endpoint URL for corresponding region and env."""
+    url = f'{get_connecting_url(args)}/tools/cbnParsers/{log_type}'
+    print(f'Connecting to: {url}')
+    return url
+
+
 def get_archive_parser_url(args, config_id):
     """Returns archive parser endpoint URL for corresponding region and env."""
     url = f'{get_connecting_url(args)}/tools/cbnParsers/{config_id}:archive'
@@ -239,6 +246,13 @@ def download_parser(args):
     call_download_parser(args, args.config_id, args.log_type)
 
 
+def default_parser(args):
+    """Downloads default Parser to a file, formatted."""
+    print('\n[cbn_cli]: Downloading default parser... ', flush=True)
+
+    call_default_parser(args, args.log_type)
+
+
 def parser_errors(args):
     """Gets a list of parser errors."""
     print('\n[cbn_cli]: Getting parser errors... ', flush=True)
@@ -252,9 +266,9 @@ def call_create_parser(args):
         config_data = config_file.read()
 
     data = {
-      'config': base64.urlsafe_b64encode(config_data),
-      'log_type': args.log_type,
-      'author': args.author
+        'config': base64.urlsafe_b64encode(config_data),
+        'log_type': args.log_type,
+        'author': args.author
     }
 
     if args.skip_validation_on_no_logs == "True":
@@ -414,6 +428,19 @@ def call_download_parser(args, config_id, log_type):
         f.write(decoded_config)
 
 
+def call_default_parser(args, log_type):
+    """Calls log_type parsers endpoint and writes default parser config to file."""
+    parser = make_request(args, get_default_parser_url(args, args.log_type))
+
+    decoded_config = base64.b64decode(parser['config'])
+    decoded_config = decoded_config.decode('utf-8')
+    timestr = time.strftime('%Y%m%d%H%M%S')
+    filename = parser['logType'] + '_' + timestr + '.conf'
+    print(f'Writing parser to: {filename}')
+    with open(filename, 'a') as f:
+        f.write(decoded_config)
+
+
 def call_parser_errors(args, log_type, start_date, end_date):
     """Calls parser errors endpoint and prints the result."""
     if not log_type:
@@ -541,6 +568,13 @@ def arg_parser():
     dgroup.add_argument('-l', '--log_type', help='Log Type')
     dgroup.add_argument('-i', '--config_id', help='unique config ID')
     parser_download_command.set_defaults(func=download_parser)
+
+    # "default" command
+    parser_default_command = subparsers.add_parser(
+        'default', help='download default parser code given log type')
+    parser_default_command.add_argument(
+        '-l', '--log_type', required=True, help='Log Type')
+    parser_default_command.set_defaults(func=default_parser)
 
     # "error" command
     error_command = subparsers.add_parser(
